@@ -1,0 +1,92 @@
+function [] = tracking(files_path, treshold)
+    files = dir(fullfile(files_path, "*.jpg"));
+    n_files = length(files);
+    
+    
+    % create video
+    % video = VideoWriter('video.avi'); %creates a video
+    
+%     for i = 1:n_files - 1
+    for i = 1:2
+        % files(i).folder is hetzelfde als files(i+1).folder
+        im1 = imread(strcat(files(i).folder, '/', files(i).name));
+        im2 = imread(strcat(files(i).folder, '/', files(i+1).name));
+        
+        [height,width,~]=size(im1); %   EIGEN CODE
+        
+        if i ==1
+            [~, r, c] = harris_corner_detector(im1, treshold);
+        else
+            % move the r & c for the new image 
+        end
+        
+        patch_size = 15;
+        % for loop trough al corners 
+        
+%         im1_vel = zeros(length(c), 2);
+%         
+%         fprintf('%d', im1_vel(1));
+        
+        vx_im1 = zeros(length(r));
+        vy_im1 = zeros(length(r));
+        for j = 1:length(r)
+            %create a patch for every corner
+            patch_r = [r(i) - floor(patch_size/2) :r(i) + floor(patch_size/2)];
+            patch_c = [c(i) - floor(patch_size/2) :c(i) + floor(patch_size/2)];
+            
+            % cut window if it would lead outside of the image
+            patch_r=patch_r(patch_r>0); %   EIGEN CODE
+            patch_c=patch_c(patch_c>0);  %   EIGEN CODE
+            
+            patch_r=patch_r(patch_r<width+1); %   EIGEN CODE
+            patch_c=patch_c(patch_c<height+1);%   EIGEN CODE
+            
+            im1_patch = im1(patch_r, patch_c);
+            im2_patch = im2(patch_r, patch_c);
+            
+            % if you use this; best to set of the image plotting in
+            % lucas_kanade
+            [vx,vy] = lucas_kanade(im1_patch, im2_patch, patch_size);
+%             im1_vel(i,1) = vx(1);
+%             im1_vel(i,2) = vy(1);
+     
+            vx_im1 = vx(1);
+            vy_im1 = vy(1);
+            % TO DO: for every vx,vy per corner, set it in an array for
+            % plotting in the next step. 
+            
+
+        end
+
+       
+%         % plot image with flow vectors
+%         h=figure(1);
+%         imshow(im1);
+%         hold on;
+%         
+%         %add corners to image
+%         plot(r,c, ['.','r'], 'MarkerSize',10);
+%         
+%         fprintf('%d', size(vx_im1));
+%         fprintf('%d', size(r));
+        
+        %add flow vector
+%         q = quiver(r,c, vx_im1, vy_im1);
+%         q.Color = 'yellow';
+        
+        % this patch is the same for both images 
+        
+        % add im1 with the optical flow for the corners to the video; 
+        % writeVideo(video, im1); % writes the image to the video
+        
+        
+    end
+    
+    % close the video; close(video);.
+    
+    
+
+
+end
+
+

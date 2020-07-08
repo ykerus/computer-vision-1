@@ -1,0 +1,160 @@
+function show_results
+%   Get the targets
+    [~, ~, X_test, t_test, class_names] = load_images();
+%   The settings of our models
+%     voc_sizes = [400, 1000, 4000];
+%     methods = ["dense", "key points"];
+%     descs = ["rgb", "opponent", "gray"];
+    voc_sizes = [400, 1000, 4000];
+    methods = ["dense", "key points"];
+    descs = ["rgb", "opponent", "gray"];
+%   Loop through all
+    for x = 1 : length(voc_sizes)
+        voc_size = voc_sizes(x);
+        for y = 1 : length(methods)
+            method = methods(y);
+            for z = 1 : length(descs)
+                desc = descs(z);
+                
+                folder = strcat(num2str(voc_size), "_", method, "_", desc);
+                classdir = strcat("./", folder, "/classes.mat");
+                scoredir = strcat("./", folder, "/scores.mat");
+                
+                predictions = struct2cell(load(classdir));
+                predictions = predictions{1};
+                scores = struct2cell(load(scoredir));
+                scores = scores{1};
+                
+                highscores = zeros(1,5);
+                hsimgs = zeros(1,5);
+                lowscores = [Inf, Inf, Inf, Inf, Inf];
+                lsimgs = zeros(1,5);
+                
+                totalTP = 0;
+                totalFP = 0;
+                totalTN = 0;
+                totalFN = 0;
+                
+                classes = [1,2,3,7,9];
+                TP = double(zeros(1,5));
+                TPnum = double(zeros(1,5));
+                Total = double(zeros(1,5));
+                
+                for p = 1:size(t_test,1)
+                    highestscore = -Inf;
+                    for k = 1:5
+                        pred = predictions{k};
+                        score = scores{k};
+                        bint = t_test == classes(k);
+                        if pred(p) == 1 && bint(p) == 1
+                           Total(k) = Total(k) + 1;
+                           TPnum(k) = TPnum(k) + 1;
+                           TP(k) = TP(k) + (TPnum(k)/Total(k));
+                           totalTP = totalTP + 1;
+                           if score(p,2) > highestscore
+                               highestscore = score(p,2);
+                           end
+                        elseif pred(p) == 1 && bint(p) == 0
+                           Total(k) = Total(k) + 1;
+                           totalFP = totalFP + 1;
+                           if score(p,2) > highestscore
+                               highestscore = score(p,2);
+                           end
+                        elseif pred(p) == 0 && bint(p) == 1
+                           totalFN = totalFN + 1;
+                           if score(p,1) > highestscore
+                               highestscore = score(p,1);
+                           end
+                        else
+                           totalTN = totalTN + 1;
+                           if score(p,1) > highestscore
+                               highestscore = score(p,1);
+                           end
+                       end
+                    end
+                    [highscores, hsimgs] = check_and_set_best(highscores, hsimgs, highestscore, p);
+                    [lowscores, lsimgs] = check_and_set_worst(lowscores, lsimgs, highestscore, p);
+                end
+                
+                
+                precision = totalTP / (totalTP + totalFP);
+                recall = totalTP / (totalTP + totalFN);
+                accuracy = (totalTP + totalTN) / (totalTP + totalTN + totalFP + totalFN);
+                
+                AP = TP./800;
+                
+                display(strcat(folder, ".  class 1: ", num2str(AP(1)), ".  class 2: ", num2str(AP(2)), ".  class 3: ", num2str(AP(3)), ".  class 7: ", num2str(AP(4)), ".  class 9: ", num2str(AP(5))));
+                
+                
+                fig = figure('Name',strcat(num2str(voc_size), " ", method, " ", desc),'NumberTitle','off');
+                set(fig, "Position", [400, 400 ,600 , 300]);
+                subplot(2,5,1);
+                imshow(squeeze(X_test(hsimgs(1),:,:,:)));
+                title(strcat("score: ", num2str(highscores(1))));
+                h1 = text(-40, 110,'Best classified');
+                set(h1, 'rotation', 90);
+                subplot(2,5,2);
+                imshow(squeeze(X_test(hsimgs(2),:,:,:)));
+                title(strcat("score: ", num2str(highscores(2))));
+                subplot(2,5,3);
+                imshow(squeeze(X_test(hsimgs(3),:,:,:)));
+                h = text(0, -40, strcat(num2str(voc_size), " ", method, " ", desc));
+                set(h);
+                title(strcat("score: ", num2str(highscores(3))));
+                subplot(2,5,4);
+                imshow(squeeze(X_test(hsimgs(4),:,:,:)));
+                title(strcat("score: ", num2str(highscores(4))));
+                subplot(2,5,5);
+                imshow(squeeze(X_test(hsimgs(5),:,:,:)));
+                title(strcat("score: ", num2str(highscores(5))));
+                
+                subplot(2,5,6);
+                imshow(squeeze(X_test(lsimgs(1),:,:,:)));
+                title(strcat("score: ", num2str(lowscores(1))));
+                h2 = text(-40, 110,'Worst classified');
+                set(h2, 'rotation', 90)
+                subplot(2,5,7);
+                imshow(squeeze(X_test(lsimgs(2),:,:,:)));
+                title(strcat("score: ", num2str(lowscores(2))));
+                subplot(2,5,8);
+                imshow(squeeze(X_test(lsimgs(3),:,:,:)));
+                h = text(-200, 130, strcat("Precision: ", num2str(precision), ".   Recall: ", num2str(recall), ".   Accuracy: ", num2str(accuracy)));
+                set(h);
+                title(strcat("score: ", num2str(lowscores(3))));
+                subplot(2,5,9);
+                imshow(squeeze(X_test(lsimgs(4),:,:,:)));
+                title(strcat("score: ", num2str(lowscores(4))));
+                subplot(2,5,10);
+                imshow(squeeze(X_test(lsimgs(5),:,:,:)));
+                title(strcat("score: ", num2str(lowscores(5))));
+            end
+        end
+    end
+end
+
+function [highscores, hsimgs] = check_and_set_best(highscores, hsimgs, score, p)
+    x = min(highscores);
+    if x < score
+       for y = 1:5
+           if highscores(y) == x
+               highscores(y) = score;
+               hsimgs(y) = p;
+               break;
+           end
+       end
+    end
+end
+
+
+function [lowscores, lsimgs] = check_and_set_worst(lowscores, lsimgs, score, p)
+    x = max(lowscores);
+    if x > score
+       for y = 1:5
+           if lowscores(y) == x
+               lowscores(y) = score;
+               lsimgs(y) = p;
+               break;
+           end
+       end
+    end
+end
